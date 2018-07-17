@@ -10,8 +10,8 @@
 ### Data set:
 
  - [OpenBarbell](https://github.com/squatsandsciencelabs/OpenBarbell-V3/wiki/OpenBarbell-Data-Storage-Format)
- - See Readme.md for more details
- - The dataset is provided by [Squats and Science Barbell](http://squatsandscience.com/), no NDA is required per ownder (Jordan Berke)
+ - See [Readme.md](https://github.com/YuliaZamriy/W207_Group_Project/blob/master/Project_Overview.md) for more details
+ - The dataset is provided by [Squats and Science Barbell](http://squatsandscience.com/), no NDA is required per owner (Jordan Berke)
 
 ### Dependent variables:
 
