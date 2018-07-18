@@ -252,3 +252,171 @@ rep_df19.shape
 # writing out reps data to a csv
 rep_df17.to_csv('/home/yulia/Documents/SNS/Data/rep_data_w207_old17.csv')
 rep_df19.to_csv('/home/yulia/Documents/SNS/Data/rep_data_w207_old19.csv')
+
+#%%
+def ob_json_to_csv(json_path):
+    """
+    Converts the raw, openbarbell json data into a csv file. Performs basic cleanup and
+    transformations, but keeps the data as close to raw as possible.
+    
+    Args:
+        json_path (string): the path to the raw json data file
+        
+    Returns:
+        None
+    """
+    
+    # Read json into a dataframe
+    data_df = pd.read_json(json_path, lines = True)
+    
+    # Filter dataframe to rows that are not flagged as removed
+    data_df = data_df.loc[data_df['removed'] == 0]
+    
+    # Filter dataframe to rows where deleted is null or flagged as 0
+    data_df = data_df.loc[(data_df['deleted'].isnull()) | (data_df['deleted'] == 0)]
+    
+    # Filter dataframe to rows that have an initialStartTime value
+    data_df = data_df.loc[pd.notna(data_df['initialStartTime'])]
+    
+    # Extract the the reps data, transform it into its own dataframe
+    rep_df = pd.DataFrame(data_df['reps'].values.tolist())
+    rep_col_mapping = {
+        	0:	'StartMessg'
+        	,1:	'RepN'
+        	,2:	'AvgVel'
+        	,3:	'ROM'
+        	,4:	'PeakVel'
+        	,5:	'PeakVelLoc'
+        	,6:	'PeakAccel'
+        	,7:	'RepDur'
+        	,8:	'TimeBWReps'
+        	,9:	'TimeRepComp'
+        	,10:	'TimeRepWait'
+        	,11:	'SlowAllow'
+        	,12:	'Backlight'
+        	,13:	'MinAllow'
+        	,14:	'ComprEnable'
+        	,15:	'FiltrEnable'
+        	,16:	'CodeV'
+        	,17:	'UnitN'
+        	,18:	'LED'
+        	,19:	'Bright'
+        	,20:	'LowPow'
+        	,21:	'BulkStart'
+    }
+    rep_df = rep_df.rename(columns=rep_col_mapping)
+    
+    # Append it to the existing dataframe
+    data_df = pd.concat([data_df, rep_df], axis=1)
+     
+    # Writing out data to a csv
+    data_df.to_csv('./ob_data_w207_raw.csv')
+    
+    
+def csv_filter_columns(csv_path):
+    """
+    Reads in a csv of transformed openbarbell data and filters it down to
+    specific columns
+    
+    Args:
+        csv_path (string): path the the source csv file
+        
+    Returns:
+        None
+    """
+    
+    # Specify the columns that should be kept in our data
+    cols_to_keep = [
+        'setID'
+        ,'RepCount'
+        ,'isValid'
+        ,'removed'
+        ,'hardware'
+        ,'appVersion'
+        ,'deviceName'
+        ,'deviceIdentifier'
+        ,'time'
+        ,'exercise'
+        ,'StartMessg'
+        ,'RepN'
+        ,'AvgVel'
+        ,'ROM'
+        ,'PeakVel'
+        ,'PeakVelLoc'
+        ,'PeakAccel'
+        ,'RepDur'
+        ,'TimeBWReps'
+        ,'TimeRepComp'
+        ,'TimeRepWait'
+        ,'SlowAllow'
+        ,'Backlight'
+    ]
+    
+    # Read in the source csv file, filtering it to only the columns
+    # specified
+    data_df = pd.read_csv(csv_path, usecols=cols_to_keep)
+    
+    # Write out the filtered data to a new csv
+    data_df.to_csv('./ob_data_w207_filtered.csv')
+    
+    
+def add_labels(csv_path):
+    """
+    Reads in a csv file, ideally transformed and filtered, and applies 
+    labeling logic to the dataset. The native exercise labels are unreliable,
+    so custom logic is required to get a clearer sense around the exercise being
+    performed
+    
+    Args:
+        csv_path (string): path to the source csv file
+        
+    Returns:
+        None
+    """
+    
+    # Read csv file into dataframe
+    data_df = pd.read_csv(csv_path)
+    
+    #  Apply Tim's logic for simple labeling
+    data_df['exercise'] = data_df['exercise'].str.lower().str.strip()
+    data_df['simple_label'] = data_df['exercise'].apply(ex_name)
+    
+    # Write labeled dataframe to a csv
+    data_df.to_csv('./ob_data_w207_labeled.csv')
+
+ 
+def ex_name(exercise):
+    """
+    Helper function that looks for specific keywords in the provided
+    'exercise' argument to help identify which lift is being performed.
+    
+    Args:
+        exercise (string): the original exercise string
+        
+    Returns:
+        string: the clean exercise string
+    """
+    
+    if "bench" in exercise.lower():
+        return "bench"
+    elif "dead" in exercise.lower():
+        return "dead lift"
+    elif "squat" in exercise.lower():
+        return "squat"
+    else:
+        return exercise.lower()
+
+
+#%%
+def partition_data(csv_path, train_data, train_labels, test_data, test_labels):
+    """
+    docstring
+    
+    Args:
+        
+    Returns:
+        
+    """
+
+    print('foo')
+    
