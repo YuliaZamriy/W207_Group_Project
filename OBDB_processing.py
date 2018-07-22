@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 
 data_df = pd.read_json('/home/yulia/Documents/SNS/Data/obdatadump.json', lines = True)
-list(data_df) 
+list(data_df)
 
 # deletinng unnecessary columns
 del data_df['videoType']
@@ -87,14 +87,14 @@ reps_list = data_df_new['reps'].tolist()
 sets_list = data_df_new['setID'].tolist()
 
 # setting names for the first 22 metrics in reps['data']
-colnames = ['StartMessg',   'RepN',         'AvgVel',   'ROM',          'PeakVel',  
-            'PeakVelLoc',   'PeakAccel',    'RepDur',   'TimeBWReps',   'TimeRepComp', 
-            'TimeRepWait',  'SlowAllow',    'Backlight','MinAllow',     'ComprEnable', 
-            'FiltrEnable',  'CodeV',        'UnitN',    'LED',          'Bright', 
+colnames = ['StartMessg',   'RepN',         'AvgVel',   'ROM',          'PeakVel',
+            'PeakVelLoc',   'PeakAccel',    'RepDur',   'TimeBWReps',   'TimeRepComp',
+            'TimeRepWait',  'SlowAllow',    'Backlight','MinAllow',     'ComprEnable',
+            'FiltrEnable',  'CodeV',        'UnitN',    'LED',          'Bright',
             'LowPow',       'BulkStart']
 
 # creating a dictionary for all sets and reps
-# primary key: setID 
+# primary key: setID
 # secondary key: rep count
 # values: rep values and rep['data'] values
 # keeping only the first 13 rep['data'] values
@@ -113,7 +113,7 @@ len(set_dict)
 # 62439 number of unique sets
 
 # creating a list of lists
-# each inner list = one rep with setID and rep count 
+# each inner list = one rep with setID and rep count
 set_dict_list = []
 for setid in set_dict:
     for repnum in set_dict[setid]:
@@ -185,7 +185,7 @@ for setid in set_dict:
         temp_list = [setid, repnum]
         for metric in set_dict[setid][repnum]:
             temp_list.append(set_dict[setid][repnum][metric])
-        if len(temp_list) == 17:      
+        if len(temp_list) == 17:
             set_dict_list17.append(temp_list)
         elif len(temp_list) == 19:
             set_dict_list19.append(temp_list)
@@ -258,26 +258,26 @@ def ob_json_to_csv(json_path):
     """
     Converts the raw, openbarbell json data into a csv file. Performs basic cleanup and
     transformations, but keeps the data as close to raw as possible.
-    
+
     Args:
         json_path (string): the path to the raw json data file
-        
+
     Returns:
         None
     """
-    
+
     # Read json into a dataframe
     data_df = pd.read_json(json_path, lines = True)
-    
+
     # Filter dataframe to rows that are not flagged as removed
     data_df = data_df.loc[data_df['removed'] == 0]
-    
+
     # Filter dataframe to rows where deleted is null or flagged as 0
     data_df = data_df.loc[(data_df['deleted'].isnull()) | (data_df['deleted'] == 0)]
-    
+
     # Filter dataframe to rows that have an initialStartTime value
     data_df = data_df.loc[pd.notna(data_df['initialStartTime'])]
-    
+
     # Extract the the reps data, transform it into its own dataframe
     rep_df = pd.DataFrame(data_df['reps'].values.tolist())
     rep_col_mapping = {
@@ -305,26 +305,26 @@ def ob_json_to_csv(json_path):
         	,21:	'BulkStart'
     }
     rep_df = rep_df.rename(columns=rep_col_mapping)
-    
+
     # Append it to the existing dataframe
     data_df = pd.concat([data_df, rep_df], axis=1)
-     
+
     # Writing out data to a csv
     data_df.to_csv('./ob_data_w207_raw.csv')
-    
-    
+
+
 def csv_filter_columns(csv_path):
     """
     Reads in a csv of transformed openbarbell data and filters it down to
     specific columns
-    
+
     Args:
         csv_path (string): path the the source csv file
-        
+
     Returns:
         None
     """
-    
+
     # Specify the columns that should be kept in our data
     cols_to_keep = [
         'setID'
@@ -351,52 +351,52 @@ def csv_filter_columns(csv_path):
         ,'SlowAllow'
         ,'Backlight'
     ]
-    
+
     # Read in the source csv file, filtering it to only the columns
     # specified
     data_df = pd.read_csv(csv_path, usecols=cols_to_keep)
-    
+
     # Write out the filtered data to a new csv
     data_df.to_csv('./ob_data_w207_filtered.csv')
-    
-    
+
+
 def add_labels(csv_path):
     """
-    Reads in a csv file, ideally transformed and filtered, and applies 
+    Reads in a csv file, ideally transformed and filtered, and applies
     labeling logic to the dataset. The native exercise labels are unreliable,
     so custom logic is required to get a clearer sense around the exercise being
     performed
-    
+
     Args:
         csv_path (string): path to the source csv file
-        
+
     Returns:
         None
     """
-    
+
     # Read csv file into dataframe
     data_df = pd.read_csv(csv_path)
-    
+
     #  Apply Tim's logic for simple labeling
     data_df['exercise'] = data_df['exercise'].str.lower().str.strip()
     data_df['simple_label'] = data_df['exercise'].apply(ex_name)
-    
+
     # Write labeled dataframe to a csv
     data_df.to_csv('./ob_data_w207_labeled.csv')
 
- 
+
 def ex_name(exercise):
     """
     Helper function that looks for specific keywords in the provided
     'exercise' argument to help identify which lift is being performed.
-    
+
     Args:
         exercise (string): the original exercise string
-        
+
     Returns:
         string: the clean exercise string
     """
-    
+
     if "bench" in exercise.lower():
         return "bench"
     elif "dead" in exercise.lower():
@@ -411,12 +411,12 @@ def ex_name(exercise):
 def partition_data(csv_path, train_data, train_labels, test_data, test_labels):
     """
     docstring
-    
+
     Args:
-        
+
     Returns:
-        
+
     """
 
     print('foo')
-    
+
