@@ -3,14 +3,15 @@ import numpy as np
 
 def read_ob_json(json_path):
     """
-    Converts the raw, openbarbell json data into a csv file. Performs basic cleanup and
-    transformations, but keeps the data as close to raw as possible.
+    Reads raw json file and filters out:
+        - sets that were removed by user 
+        - sets that were not flagged as squat/bench/deadlift
     
     Args:
         json_path (string): the path to the raw json data file
         
     Returns:
-        None
+        pandas dataframe
     """
     
     # Read json into a dataframe
@@ -25,22 +26,31 @@ def read_ob_json(json_path):
     data_df = data_df.loc[(data_df['deleted'].isnull()) | (data_df['deleted'] == 0)]
     print(f"{data_df.shape[0]} rows after removing rows with 'deleted' flag")
     
+    # Filter on the rows that are at least somehow related to the big 3 lifts
+    # bp is short for bench press
     big3 = ["squat", "bench", "bp", "deadlift"]
     exercises = data_df["exercise"].str.lower().str.strip().tolist()
-    
     keep_flag = np.zeros(data_df.shape[0])    
     for index in range(len(exercises)):
         if type(exercises[index]) == str and any(word in exercises[index] for word in big3):
             keep_flag[index] = 1
     
     print("Number of rows with big 3 exercise:", sum(keep_flag))
-    
     data_df = data_df.loc[keep_flag == 1]
     print(f"{data_df.shape[0]} sets with big 3 exercises")
         
     return data_df
     
 def get_sets_df(data_df):
+    """
+    Removes 'reps' column from input dataframe to build set-specific dataframe
+    
+    Args:
+        data_df: pandas dataframe (output from read_ob_json)
+        
+    Returns:
+        pandas dataframe 
+    """
     
     sets_df = data_df.drop('reps', axis = 1)
     print(f"Set data frame dimensions: {sets_df.shape}")
@@ -49,9 +59,23 @@ def get_sets_df(data_df):
     return sets_df
 
 def get_reps_df(data_df, colnames, appver):
+    """
+    Unrolls `reps` field from the main dataframe and extracts
+    `data` list based on each OB version specifics
     
-    reps_list = data_df['reps'].tolist()
+    Args:
+        data_df:  pandas dataframe (output from read_ob_json)
+        colnames: list of fields to keep from reps dictionary
+        appver:   OB app version
+        
+    Returns:
+        reps data frame specific to each app version
+    """
+    
+    # setID is the primary key to merge sets and reps data
     sets_list = data_df['setID'].tolist()
+    # `reps` field is a nested dictionary
+    reps_list = data_df['reps'].tolist()
 
     # creating a dictionary for all sets and reps
     # primary key: setID; secondary key: rep count
@@ -60,6 +84,7 @@ def get_reps_df(data_df, colnames, appver):
     for set_index in range(data_df.shape[0]):
         set_dict[sets_list[set_index]] = {}
         for n, rep in enumerate(reps_list[set_index]):
+            # each OB version had different metrics captured by `data` list
             if len(rep.get('data')) > len(colnames):
                 set_dict[sets_list[set_index]][n] = rep.copy()
                 for col_index in range(len(colnames)):
@@ -68,19 +93,25 @@ def get_reps_df(data_df, colnames, appver):
                 
     print(f"{len(set_dict)} sets recorded")
     
+    # unroll nested set_dict into pandas dataframe
     reps_df = pd.DataFrame.from_dict({(i,j): set_dict[i][j] 
                                         for i in set_dict.keys() 
                                         for j in set_dict[i].keys()},
                                    orient='index')
+    # name dataframe indices
     reps_df.index.names = ["setID", "RepCount"]
+    # convert indices into columns
     reps_df = reps_df.reset_index(level=["setID", "RepCount"])
     
+    # keep only rows specific to each OB app version
     reps_df = reps_df.loc[(reps_df['StartMessg'] == appver[0]) | (reps_df['StartMessg'] == appver[1])]
     print(f"{reps_df.shape[0]} reps extracted")
-        
+    
+    # remove reps deleted by a user
     reps_df = reps_df.loc[reps_df['removed'] == 0]
     print(f"{reps_df.shape[0]} rows after removing rows with 'removed' flag")
     
+    # remove reps marked by the app as invalid
     reps_df = reps_df.loc[reps_df['isValid'] == 1]
     print(f"{reps_df.shape[0]} rows after removing rows with 'deleted' flag")
     
@@ -89,8 +120,18 @@ def get_reps_df(data_df, colnames, appver):
     return reps_df
 
 def combine_reps_dfs(data_df):
-
-    colnames_old17 = [
+    """
+    Combines rep dataframes from three different versions of OB database
+    
+    Args:
+        data_df: pandas dataframe (output from read_ob_json) 
+        
+    Returns:
+        reps dataframe
+    """
+    
+    # data metrics captured by OB v1
+    colnames_obv1 = [
             'StartMessg'
             ,'RepN'
             ,'AvgVel'
@@ -98,7 +139,8 @@ def combine_reps_dfs(data_df):
             ,'PeakVel'
             ]
     
-    colnames_old19 = [
+    # data metrics captured by OB v2
+    colnames_obv2 = [
             'StartMessg'
             ,'RepN'
             ,'AvgVel'
@@ -115,7 +157,8 @@ def combine_reps_dfs(data_df):
             ,'MinAllow'
             ]
     
-    colnames_new = [
+    # data metrics captured by OB v3
+    colnames_obv3 = [
             'StartMessg'
             ,'RepN'
             ,'AvgVel'
@@ -133,21 +176,34 @@ def combine_reps_dfs(data_df):
             ]
     
     print("\nProcessing OBV1 reps\n")
-    old17_df = get_reps_df(data_df, colnames_old17, ('-1234', '-1234.0'))
+    # 1234 is the flag used to identify v1
+    obv1_df = get_reps_df(data_df, colnames_obv1, ('-1234', '-1234.0'))
     print("\nProcessing OBV2 reps\n")
-    old19_df = get_reps_df(data_df, colnames_old19, ('-2345', '-2345.0'))
+    # 2345 is the flag used to identify v2
+    obv2_df = get_reps_df(data_df, colnames_obv2, ('-2345', '-2345.0'))
     print("\nProcessing OBV3 reps\n")
-    new_df = get_reps_df(data_df, colnames_new, ('-3456', '-3456.0'))
+    # 3456 is the flag used to identify v3
+    obv3_df = get_reps_df(data_df, colnames_obv3, ('-3456', '-3456.0'))
 
-    rep_check = old17_df.shape[0]+old19_df.shape[0]+new_df.shape[0]
+    rep_check = obv1_df.shape[0]+obv2_df.shape[0]+obv3_df.shape[0]
     print("\nTotal reps across 3 datasets:", rep_check)
-    reps_all = pd.concat([old17_df, old19_df, new_df], sort=False)
+    reps_all = pd.concat([obv1_df, obv2_df, obv3_df], sort=False)
     print("Dimensions of the final dataset:", reps_all.shape)
     
     return reps_all
 
 def convert_columns(data_df):
+    """
+    Converts certain fields from strings to datetime and numeric objects
     
+    Args:
+        pandas dataframe with all the reps combined
+        
+    Returns:
+        reps dataframe with properly typed fields
+    """
+    
+    # datatime fields
     date_cols = [
             'endTime'
             ,'startTime'
@@ -155,6 +211,7 @@ def convert_columns(data_df):
             ,'time'
             ]
     
+    # numeric fields
     num_cols = [
             'RepN'
             ,'AvgVel'
@@ -172,38 +229,61 @@ def convert_columns(data_df):
     
     data_df[date_cols] = data_df[date_cols].apply(pd.to_datetime, errors = 'coerce')
     data_df[num_cols] = data_df[num_cols].apply(pd.to_numeric, errors = 'coerce')
+    
+    # some of the velocity fields have 'infinity' values
+    # replacing them with nans
     data_df=data_df.replace(np.inf, np.nan)
     
     return data_df
 
 def fix_rpe_weight(data_df):
-
-    """Converting RPE into float"""
+    """
+    Fixes rpe and weight fields:
+        both rpe and weight are catptured as strings in the database
+        to allow decimal point and commas (for European lifters)
     
+    Args:
+        data_df: reps dataframe
+    
+    Returns:
+        reps dataframe with new fields for rpe and weight
+    """
+
+    # Converting RPE (rate of perceived exertion) into float
     rpe = data_df['rpe'].tolist()
     
     # converting RPE into numbers and storing them in a list
-    # capturing RPE error entries in a separate list
+    # capturing RPE error entries in a separate list for QA
     rpe_num, rpe_errors = [], []
     for r in rpe:
+        # values less than 5.5 are not permitted in the database
+        # because this low rpe is usually inaccurate
+        # hence they are captured by '< 5.5' value
         if r in ('< 5.5', '< 5,5'):
             r_num = 5.5
+        # capturing empty entries
         elif r in ('','..'):
             r_num = np.nan
+        # replacing decimal comma with a period to convert to a float
+        # checking for the length of 3 because the only valid values here
+        # would be '6,5', '7,5', '8,5', '9,5'
         elif type(r) == str and len(r) == 3 and r.find(',') > 0:
             r_num = float(r.replace(',','.'))
+        # this is to capture values separated by '-' and containing commas
         elif type(r) == str and r.find(',') > 0:
             r2 = r.replace(",",".")
             if r2.find("-") > 0:
+                # take the average of multiple rpes separated by '-'
                 r_num = np.mean([float(n) for n in r2.split("-")])
-                #print(r, np.mean([float(n) for n in r3]))
+        # separate other multiple rpes
         elif type(r) == str and r.find('-') > 0:
             r_num = np.mean([float(n) for n in r.split("-")])
-            #print(r, np.mean([float(n) for n in r2]))
         elif type(r) == str:
+            # try converting to float all remaining values
             try:
                 r_num = float(r)
             except ValueError:
+                # if this is not working, check what those values are
                 r_num = np.nan
                 rpe_errors.append(r)
         elif type(r) in (float, int):
@@ -212,6 +292,7 @@ def fix_rpe_weight(data_df):
             r_num = np.nan
         rpe_num.append(r_num)
     
+    # setting all values between 5.5 and 10
     for index in range(len(rpe_num)):
         if rpe_num[index] < 5.5: 
             rpe_num[index] = np.nan
@@ -230,35 +311,49 @@ def fix_rpe_weight(data_df):
     print(f"Average rpe excluding missing values: {np.mean(data_df['rpe_num'])}")
     
     
-    """Converting Weight into float"""
-
+    # Converting Weight into float
     weight = data_df['weight'].tolist()
+    # weight values can be lbs or kgs depending on 'metric' value
     metric = data_df['metric'].tolist()
     
+    # converting weight into numbers and storing them in a list
+    # capturing weight error entries in a separate list for QA
     weight_num = []
     weight_errors = []
     for w in weight:
+        # replace decimal comma with point to get a float
         if type(w) == str and w.count(',') == 1:
             w_num = float(w.replace(',','.'))
+        # sometimes comma is used to separate multiple weight values
         elif type(w) == str and w.count(',') > 1:
             w_num = np.mean([float(n) for n in w.split(",")])
+        # sometimes '-' is used to separate multiple weight values        
         elif type(w) == str and w.find('-') > 0:
             w_num = np.mean([float(n) for n in w.split("-")])
+        # sometimes '.' is used to separate multiple weight values        
         elif type(w) == str and w.count('.') > 1:
+            # taking an average of weight values separated by '.'
+            # in case the weight has half a unit (.5), ignore it
+            # this is not accurate but no other way to differentiate
             w_num = np.mean([float(n) for n in w.split(".") 
                              if (n != '') and (n != '5')])
         else:
             try:
+                # try converting to float all remaining values
                 w_num = float(w)
             except (ValueError, TypeError):
+                # if this is not working, check what those values are
                 w_num = np.nan
                 weight_errors.append(w)
         weight_num.append(w_num)
-
+        
+    # convert all weight values to lbs
     weight_lbs = weight_num[:]
     for index in range(len(weight_num)):
         if metric[index] == 'kgs':
             weight_lbs[index] = weight_num[index]*2.20462
+        # cap all values at 1000
+        # potentially exclude them from the analysis
         if weight_lbs[index] > 1000:
             weight_lbs[index] = 1000
 
