@@ -1,37 +1,24 @@
-# W207_Group_Project
-W207 Summer 2018 Group Project
+# W207 Summer 2018 Group Project
 
-The data have been pre-processed:
+### Team members
 
- - keep only exercises that can be classified into big 3 lifts (squat, bench and deadlift)
- - remove invalid sets and reps
- - unroll nested json
+ - Renzee Reyes
+ - Tim Witthoefft
+ - Jack Workman
+ - Yulia Zamriy
 
-Sets data:
+### Data set:
 
- - filename: set_data_w207.csv
- - unique on setID
- - contains data relevant to each set (weight, exercise, RPE etc.)
+ - [OpenBarbell](https://github.com/squatsandsciencelabs/OpenBarbell-V3/wiki/OpenBarbell-Data-Storage-Format)
+ - See [Readme.md](https://github.com/YuliaZamriy/W207_Group_Project/blob/master/Project_Overview.md) for more details
+ - The dataset is provided by [Squats and Science Barbell](http://squatsandscience.com/), no NDA is required per owner (Jordan Berke)
 
-Reps data:
+### Dependent variables:
 
- - filenames (based on different app releases):
-    - rep_data_w207_new.csv (contains 22 columns)
-    - rep_data_w207_old17.csv (contains 17 columns)
-    - rep_data_w207_old19.csv (contains 19 columns)
- - unique on setID + RepCount (RepCount starts with 0)
- - contains data relevant to each rep (average velocity, range of motion etc.)
+ 1. Exercise name (squat, bench press, deadlift)
+ 2. Lifter segmentation
 
-How to combine datasets:
+### Project goals:
 
- 1. Stack reps data (order is not important)
- 2. Merge with sets data by setID
-
-Caveats (ideas for future processing):
-
- - Some numeric fields are strings (weight, RPE)
- - Those strings can have , or . to indicate fractional numbers
- - Weight can be in kgs or lbs (use metric column to determine which one it is)
- - Weight and RPE can have extreme (invalid) values that need to be removed
- - Need to create cleaner labels for exercises (and potentially remove sets with tags)
-
+ 1. *Exercise classification*. Exercise name is an open field (lifters can enter whatever they want or nothin at all). However, it is one of the key variables to analyze lifter performance. Hence, we would like to build an algorithm to determine exercise for each set based on its characteristics (weight, range of motion, velocity etc.)
+ 2. *Lifter segmentation*. Can we create distinct groups of lifters based on their lifting characteristics for each exercise (velocity, range of motion, weight)? This would help create semi-customized training programs.
