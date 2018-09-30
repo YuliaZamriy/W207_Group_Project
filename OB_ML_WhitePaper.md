@@ -2,7 +2,7 @@
 
 ## How Machine Learning Algorithms Can Help Improve Quatlity of Data and Provide Insights for Smarter Training Protocols
 
-*Author: Yulia Zmariy*
+*Author: Yulia Zamriy*
 
 ### Table of Contents
 
